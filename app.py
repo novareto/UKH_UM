@@ -2,25 +2,17 @@
 
 import os
 import json
+from functools import partial
 from loader import Configuration
 from collections import namedtuple
 
 
 class Overhead(object):
 
-    def __init__(self, engine, environ, service, auth):
+    def __init__(self, engine, service, environ):
         self.engine = engine
-        self.environ = environ
         self.service = service
-        self.auth = auth
-
-
-def overhead(engine, service):
-    def overhead_factory(environ):
-        overhead_data = Overhead(
-            engine=engine, environ=environ, service=service, auth=None)
-        return overhead_data
-    return overhead_factory
+        self.auth = None
 
 
 def get_key(path):
@@ -52,4 +44,4 @@ with Configuration('config.json') as config:
     engine = create_engine(config['db']['dsn'], 'usermanagement')
 
     # Creating the application
-    application = usermanagement.make_api(overhead(engine, service))
+    application = usermanagement.make_api(partial(Overhead, engine, service))
