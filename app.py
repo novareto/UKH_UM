@@ -3,7 +3,6 @@
 import os
 import json
 from loader import Configuration
-from rutter import urlmap
 from collections import namedtuple
 
 
@@ -39,14 +38,12 @@ def get_key(path):
 
 
 with Configuration('config.json') as config:
-    from usermanagment import users
-    from dolmen.api_engine.components import Endpoint
+    import usermanagement
     from cromlech.jwt.components import JWTHandler, JWTService
     
     # Getting the crypto key and creating the JWT service
     key = get_key(config['crypto']['keypath'])
     service = JWTService(key, JWTHandler, lifetime=600)
 
-    # Creating the applications
-    application = urlmap.URLMap()
-    application['/users'] = Endpoint(users.module, overhead(service))
+    # Creating the application
+    application = usermanagement.make_api(overhead(service))

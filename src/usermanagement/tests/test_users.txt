@@ -1,0 +1,52 @@
+usermanagement API
+==================
+
+  >>> from webtest import TestApp as WSGIApp
+  >>> from usermanagement import make_api
+  >>> app = WSGIApp(make_api())
+
+
+Error handling
+--------------
+
+  >>> app.get('/users')  # doctest: +IGNORE_EXCEPTION_DETAIL
+  Traceback (most recent call last):
+  webtest.app.AppError: Bad response: 400 Bad Request (not 200 OK or 3xx redirect for http://localhost/users)
+  Couldn't match any action. Please consult the API documentation.
+
+  >>> app.get('/users/search')  # doctest: +IGNORE_EXCEPTION_DETAIL
+  Traceback (most recent call last):
+  webtest.app.AppError: Bad response: 405 Method Not Allowed (not 200 OK or 3xx redirect for http://localhost/users/search)
+  405 Method Not Allowed
+
+  The method GET is not allowed for this resource.
+
+  >>> app.post('/users/search', {'username': 'é'})  # doctest: +IGNORE_EXCEPTION_DETAIL
+  Traceback (most recent call last):
+  zope.schema._bootstrapinterfaces.InvalidValue
+
+
+Empty search
+------------
+
+  >>> response = app.post('/users/search')
+  >>> response.status_int
+  200
+
+  >>> response.body
+  b'{"status": "ok"}'
+
+  >>> response.content_type
+  'application/json'
+
+
+Search with username
+--------------------
+
+  >>> response = app.post('/users/search', {'username': 'cklinger'})
+  
+  >>> response.body
+  b'{"status": "ok"}'
+
+  >>> response.content_type
+  'application/json'

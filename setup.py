@@ -10,6 +10,7 @@ history = ""
 
 
 install_requires = [
+    'routes',
     'rutter',
     'cromlech.jwt',
     'dolmen.api_engine',
@@ -19,6 +20,7 @@ install_requires = [
 
 
 tests_require = [
+    'webtest',
     ]
 
 
@@ -43,8 +45,4 @@ setup(name=name,
           'Operating System :: OS Independent',
           'Programming Language :: Python',
           ],
-      entry_points="""
-      # -*- Entry points: -*-
-      [paste.app_factory]
-      """,
       )

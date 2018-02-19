@@ -1,24 +1,27 @@
+# -*- coding: utf-8 -*-
+
 import json
+from routes import Mapper
+from dolmen.api_engine.validation import validate
+from dolmen.api_engine.cors import allow_origins
 from dolmen.api_engine.responder import reply
-from dolmen.api_engine.validation import allowed, validate, cors_aware
-
-def options(environ):
-    response = reply(200)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Allow-Methods"] = "POST"
-    response.headers["Access-Control-Allow-Headers"] = (
-        "Authorization, Content-Type")
-    return response
+from zope.interface import Interface
+from zope.schema import ASCIILine
+from .api import BaseAction
 
 
-def allow(response):
-    if response.status[0] == '2':  # 2XX Response, OK !
-        response.headers["Access-Control-Allow-Origin"] = "*"
-    return response
+class ISearch(Interface):
+    username = ASCIILine(
+        title="User identifier",
+        required=False,
+    )
 
-@cors_aware(options, allow)
-def Search(action_request, overhead):
+
+class Search(BaseAction):
+
+    @allow_origins('*')
+    @validate(ISearch)
+    def POST(self, environ, overhead):
         listing = {'status': 'ok'}
         return reply(
             200, 
@@ -26,6 +29,5 @@ def Search(action_request, overhead):
             content_type="application/json") 
 
 
-module = {
-   'search': Search, 
-}
+mapper = Mapper()
+mapper.connect("search", "/search", controller=Search())
