@@ -17,6 +17,7 @@ install_requires = [
     'dolmen.api_engine',
     'zope.interface',
     'zope.schema',
+    'alchemyjsonschema',
     ]
 
 

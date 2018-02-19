@@ -10,46 +10,49 @@ from zope.interface import Interface
 from zope.schema import ASCIILine
 from .api import BaseAction, filter_actions
 
+import sqlalchemy as sa
+import sqlalchemy.orm as orm
+from sqlalchemy.ext.declarative import declarative_base
+from alchemyjsonschema import SchemaFactory
+from alchemyjsonschema import ForeignKeyWalker
 
-user_schema = JSONSchema("""
-{
-    "name": "User",
-    "has_file": null,
-    "type": "object",
-    "properties": {
-        "name": {
-            "type": "string",
-            "maxLength": 128,
-            "attrs": {
-                "placeholder": "Name"
-            }
-        },
-        "surname": {
-            "type": "string",
-            "maxLength": 128,
-            "attrs": {
-                "placeholder": "Surname"
-            }
-        },
-        "password": {
-            "type": "string",
-            "maxLength": 128,
-            "attrs": {
-                "placeholder": "Password"
-            }
-        },
-        "companyID": {
-            "type": "string",
-            "maxLength": 128,
-            "attrs": {
-                "placeholder": "Company id"
-            }
-        }
-    },
-    "additionalProperties": false,
-    "required": ["name", "surname", "password", "companyID"]
-}
-""")
+
+Base = declarative_base()
+
+
+class User(Base):
+    __tablename__ = "User"
+
+    id = sa.Column(
+        sa.Integer,
+        primary_key=True,
+        doc="primary key",
+    )
+
+    name = sa.Column(
+        sa.String(255),
+        nullable=False,
+    )
+
+    surname = sa.Column(
+        sa.String(255),
+        nullable=False,
+    )
+
+    password = sa.Column(
+        sa.String(255),
+        nullable=False,
+    )
+
+    companyID = sa.Column(
+        sa.String(255),
+        nullable=False,
+    )
+
+
+user_schema = JSONSchema(json.dumps(
+    SchemaFactory(ForeignKeyWalker)(User, excludes='id')
+))
 
 
 class ManageUser(BaseAction):

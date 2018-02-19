@@ -3,6 +3,7 @@ usermanagement API
 
   >>> from webtest import TestApp as WSGIApp
   >>> from usermanagement import make_api
+  >>> from usermanagement.users import Base
 
   >>> class Overhead:
   ...     def __init__(self, engine, service, environ):
@@ -17,6 +18,13 @@ usermanagement API
 
   >>> from cromlech.sqlalchemy import create_engine
   >>> engine = create_engine("sqlite://", "tests")
+
+  >>> from cromlech.sqlalchemy import SQLAlchemySession
+
+  >>> engine.bind(Base)
+  >>> with SQLAlchemySession(engine) as session:
+  ...     Base.metadata.create_all()
+
   >>> app = WSGIApp(make_api(overhead=make_overhead(engine)))
 
 
@@ -58,14 +66,21 @@ Errors handling:
   ...     headers={'Content-Type': 'application/json'},
   ...     expect_errors=True)
 
-  >>> assert response.json == {"__general__": ["Additional properties are not allowed ('username' was unexpected)"], "__missing__": ["'companyID' is a required property", "'name' is a required property", "'password' is a required property", "'surname' is a required property"]}
+  >>> assert response.json == {
+  ...     '__missing__': [
+  ...         "'companyID' is a required property",
+  ...	      "'name' is a required property",
+  ...	      "'password' is a required property",
+  ...	      "'surname' is a required property",
+  ...      ]
+  ... }
 
 
 Full submit:
 
   >>> response = app.post(
   ...     '/users/create',
-  ...     '''{"name": "Klinger", "surname": "Christian",
+  ...     '''{"id": 1, "name": "Klinger", "surname": "Christian",
   ...         "password": "test", "companyID": "novareto"}''',
   ...     headers={'Content-Type': 'application/json'},
   ...     expect_errors=False)
@@ -85,7 +100,14 @@ Errors handling:
   ...     headers={'Content-Type': 'application/json'},
   ...     expect_errors=True)
 
-  >>> assert response.json == {"__general__": ["Additional properties are not allowed ('username' was unexpected)"], "__missing__": ["'companyID' is a required property", "'name' is a required property", "'password' is a required property", "'surname' is a required property"]}
+  >>> assert response.json == {
+  ...     '__missing__': [
+  ...         "'companyID' is a required property",
+  ...	      "'name' is a required property",
+  ...	      "'password' is a required property",
+  ...	      "'surname' is a required property",
+  ...      ]
+  ... }
 
 
 Full submit:
