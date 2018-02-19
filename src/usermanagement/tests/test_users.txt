@@ -3,50 +3,100 @@ usermanagement API
 
   >>> from webtest import TestApp as WSGIApp
   >>> from usermanagement import make_api
-  >>> app = WSGIApp(make_api())
+
+  >>> class Overhead:
+  ...     def __init__(self, engine, service, environ):
+  ...         self.engine = engine
+  ...         self.service = service
+  ...         self.environ = environ
+
+  >>> def make_overhead(engine, service=None):
+  ...     def overhead(environ):
+  ...         return Overhead(engine, service, environ)
+  ...     return overhead
+
+  >>> from cromlech.sqlalchemy import create_engine
+  >>> engine = create_engine("sqlite://", "tests")
+  >>> app = WSGIApp(make_api(overhead=make_overhead(engine)))
 
 
 Error handling
 --------------
 
-  >>> app.get('/users')  # doctest: +IGNORE_EXCEPTION_DETAIL
-  Traceback (most recent call last):
-  webtest.app.AppError: Bad response: 400 Bad Request (not 200 OK or 3xx redirect for http://localhost/users)
-  Couldn't match any action. Please consult the API documentation.
+  >>> response = app.get('/users', expect_errors=True)
+  >>> assert response.status_int == 400
 
-  >>> app.get('/users/search')  # doctest: +IGNORE_EXCEPTION_DETAIL
-  Traceback (most recent call last):
-  webtest.app.AppError: Bad response: 405 Method Not Allowed (not 200 OK or 3xx redirect for http://localhost/users/search)
-  405 Method Not Allowed
+  >>> response = app.post('/users/schema', {'a': 1}, expect_errors=True)
+  >>> assert response.status_int == 405
 
-  The method GET is not allowed for this resource.
+  >>> response = app.post(
+  ...     '/users/create', '''{"a": 1}''',
+  ...     expect_errors=True)
+  >>> assert response.status_int == 406
+  >>> assert response.body == b'Content type must be application/json'
 
-  >>> app.post('/users/search', {'username': 'é'})  # doctest: +IGNORE_EXCEPTION_DETAIL
-  Traceback (most recent call last):
-  zope.schema._bootstrapinterfaces.InvalidValue
+  >>> response = app.put('/users/create', {'a': 1}, expect_errors=True)
+  >>> assert response.status_int == 405
 
 
-Empty search
-------------
+Schema
+------
 
-  >>> response = app.post('/users/search')
-  >>> response.status_int
-  200
+  >>> from usermanagement.users import user_schema
+  >>> response = app.get('/users/schema')
+  >>> assert response.body == bytes(user_schema.string, 'utf-8')
 
+
+Create
+------
+
+Errors handling:
+
+  >>> response = app.post(
+  ...     '/users/create',
+  ...     '''{"username": "cklinger"}''',
+  ...     headers={'Content-Type': 'application/json'},
+  ...     expect_errors=True)
+
+  >>> assert response.json == {"__general__": ["Additional properties are not allowed ('username' was unexpected)"], "__missing__": ["'companyID' is a required property", "'name' is a required property", "'password' is a required property", "'surname' is a required property"]}
+
+
+Full submit:
+
+  >>> response = app.post(
+  ...     '/users/create',
+  ...     '''{"name": "Klinger", "surname": "Christian",
+  ...         "password": "test", "companyID": "novareto"}''',
+  ...     headers={'Content-Type': 'application/json'},
+  ...     expect_errors=False)
+
+  >>> assert response.status_int == 200
+  >>> assert response.body == b'{"status": "ok"}'
+
+
+Update
+------
+
+Errors handling:
+
+  >>> response = app.put(
+  ...     '/users/update/1',
+  ...     '''{"username": "cklinger"}''',
+  ...     headers={'Content-Type': 'application/json'},
+  ...     expect_errors=True)
+
+  >>> assert response.json == {"__general__": ["Additional properties are not allowed ('username' was unexpected)"], "__missing__": ["'companyID' is a required property", "'name' is a required property", "'password' is a required property", "'surname' is a required property"]}
+
+
+Full submit:
+
+  >>> response = app.put(
+  ...     '/users/update/1',
+  ...     '''{"name": "Klinger", "surname": "Christian",
+  ...         "password": "test", "companyID": "novareto"}''',
+  ...     headers={'Content-Type': 'application/json'},
+  ...     expect_errors=False)
+
+  >>> assert response.status_int == 200
   >>> response.body
-  b'{"status": "ok"}'
-
-  >>> response.content_type
-  'application/json'
-
-
-Search with username
---------------------
-
-  >>> response = app.post('/users/search', {'username': 'cklinger'})
-  
-  >>> response.body
-  b'{"status": "ok"}'
-
-  >>> response.content_type
-  'application/json'
+  b'{"status": "ok", "updated_user": "1"}'

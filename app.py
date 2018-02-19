@@ -8,15 +8,17 @@ from collections import namedtuple
 
 class Overhead(object):
 
-    def __init__(self, environ, service, auth):
+    def __init__(self, engine, environ, service, auth):
+        self.engine = engine
         self.environ = environ
         self.service = service
         self.auth = auth
 
 
-def overhead(service):
+def overhead(engine, service):
     def overhead_factory(environ):
-        overhead_data = Overhead(environ=environ, service=service, auth=None)
+        overhead_data = Overhead(
+            engine=engine, environ=environ, service=service, auth=None)
         return overhead_data
     return overhead_factory
 
@@ -40,10 +42,14 @@ def get_key(path):
 with Configuration('config.json') as config:
     import usermanagement
     from cromlech.jwt.components import JWTHandler, JWTService
+    from cromlech.sqlalchemy import create_engine
     
     # Getting the crypto key and creating the JWT service
     key = get_key(config['crypto']['keypath'])
     service = JWTService(key, JWTHandler, lifetime=600)
 
+    # SQLEngine
+    engine = create_engine(config['db']['dsn'], 'usermanagement')
+
     # Creating the application
-    application = usermanagement.make_api(overhead(service))
+    application = usermanagement.make_api(overhead(engine, service))

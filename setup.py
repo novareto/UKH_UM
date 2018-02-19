@@ -13,6 +13,7 @@ install_requires = [
     'routes',
     'rutter',
     'cromlech.jwt',
+    'cromlech.sqlalchemy',
     'dolmen.api_engine',
     'zope.interface',
     'zope.schema',
