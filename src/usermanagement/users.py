@@ -52,24 +52,25 @@ user_schema = JSONSchema("""
 """)
 
 
-class UserSchema(BaseAction):
-
-    @allow_origins('*')
-    def GET(self, environ, overhead):
-        return reply(
-            200, text=user_schema.string,
-            content_type="application/json")
-
-
 class ManageUser(BaseAction):
 
     @allow_origins('*')
-    @filter_actions('get')
+    @filter_actions('get_user', 'schema')
     def GET(self, environ, overhead):
-        # Get a user
-        return reply(
-            200, text=user_schema.string,
-            content_type="application/json")
+        if overhead.routing['action'] == 'schema':
+            # We want the schema
+            return reply(
+                200, text=user_schema.string,
+                content_type="application/json")
+        if overhead.routing['action'] == 'get_user':
+            listing = {
+                'status': 'ok',
+                'fetched_user': overhead.routing['id'],
+            }
+            return reply(
+                200, 
+                text=json.dumps(listing, sort_keys=True), 
+                content_type="application/json")
 
     @allow_origins('*')
     @filter_actions('create')
@@ -115,13 +116,9 @@ class ManageUser(BaseAction):
 
 mapper = Mapper()
 
-mapper.connect(
-    "schema",
-    "/schema",
-    controller=UserSchema())
-
 with mapper.submapper(controller=ManageUser()) as m:
+    m.connect(None, "/schema", action="schema")
     m.connect(None, "/create", action="create")
-    m.connect(None, "/get/{id:\d+}", action="get")
+    m.connect(None, "/get/{id:\d+}", action="get_user")
     m.connect(None, "/update/{id:\d+}", action="update")
     m.connect(None, "/delete/{id:\d+}", action="delete")

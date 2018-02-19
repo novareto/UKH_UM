@@ -100,3 +100,24 @@ Full submit:
   >>> assert response.status_int == 200
   >>> response.body
   b'{"status": "ok", "updated_user": "1"}'
+
+
+Fetch
+-----
+
+Errors handling:
+
+  >>> response = app.get(
+  ...     '/users/get',
+  ...     expect_errors=True)
+
+  >>> assert response.body == b"Couldn't match any action. Please consult the API documentation."
+
+
+Providing an id:
+
+  >>> response = app.get(
+  ...     '/users/get/1',
+  ...     expect_errors=False)
+
+  >>> assert response.json == {"fetched_user": "1", "status": "ok"}
