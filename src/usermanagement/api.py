@@ -62,7 +62,7 @@ def endpoint_routes(endpoint):
 
 
 class Overhead(BaseOverhead):
-    
+
     __slots__ = ('engine', 'service', 'parameters', 'identity', 'data')
 
     def __init__(self, engine, service, args, identity=None):
@@ -90,7 +90,7 @@ class API:
 
     def __setitem__(self, name, value):
         self.add_endpoint(name, value)
-        
+
     def __call__(self, environ, start_response):
         path_info = environ['PATH_INFO'].encode('latin-1').decode('utf-8')
         action, args, allowed, path = self.mapper.select(

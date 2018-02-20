@@ -51,7 +51,7 @@ user_schema = JSONSchema.create_from_json(
 
 
 class ManageUser:
-    
+
     @route("/schema", methods=['GET', 'OPTIONS'])
     def schema(self, environ, overhead):
         return reply(
@@ -65,8 +65,8 @@ class ManageUser:
             'fetched_user': overhead.parameters['id'],
         }
         return reply(
-            200, 
-            text=json.dumps(listing, sort_keys=True), 
+            200,
+            text=json.dumps(listing, sort_keys=True),
             content_type="application/json")
 
     @route("/create", methods=['POST', 'OPTIONS'])
@@ -76,9 +76,9 @@ class ManageUser:
         with SQLAlchemySession(overhead.engine) as session:
             listing = {'status': 'ok'}
         return reply(
-            200, 
-            text=json.dumps(listing), 
-            content_type="application/json") 
+            200,
+            text=json.dumps(listing),
+            content_type="application/json")
 
     @route("/update/{id:digits}", methods=['PUT', 'OPTIONS'])
     @user_schema.json_validator
@@ -90,9 +90,9 @@ class ManageUser:
                 'updated_user': overhead.parameters['id'],
             }
         return reply(
-            200, 
-            text=json.dumps(listing, sort_keys=True), 
-            content_type="application/json") 
+            200,
+            text=json.dumps(listing, sort_keys=True),
+            content_type="application/json")
 
     @route("/delete/{id:digits}", methods=['DELETE', 'OPTIONS'])
     def delete(self, environ, overhead):
@@ -103,9 +103,9 @@ class ManageUser:
                 'deleted_user': overhead.parameters['id'],
             }
         return reply(
-            200, 
-            text=json.dumps(listing, sort_keys=True), 
-            content_type="application/json") 
+            200,
+            text=json.dumps(listing, sort_keys=True),
+            content_type="application/json")
 
 
 module = ManageUser()
