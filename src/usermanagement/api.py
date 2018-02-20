@@ -4,6 +4,7 @@ import inspect
 from posixpath import join as urljoin
 from functools import wraps
 from cromlech.jwt.components import TokenException
+from dolmen.api_engine.components import BaseOverhead
 from dolmen.api_engine.responder import reply
 
 
@@ -62,7 +63,7 @@ def endpoint_routes(endpoint):
             yield url, route
 
 
-class Overhead:
+class Overhead(BaseOverhead):
     
     __slots__ = ('engine', 'service', 'parameters', 'identity', 'data')
 
