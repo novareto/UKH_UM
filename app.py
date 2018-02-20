@@ -6,14 +6,6 @@ from functools import partial
 from loader import Configuration
 
 
-class Overhead(object):
-
-    def __init__(self, engine, service, environ):
-        self.engine = engine
-        self.service = service
-        self.auth = None
-
-
 def get_key(path):
     if not os.path.isfile(path):
         with open(path, 'w+', encoding="utf-8") as keyfile:
@@ -43,4 +35,5 @@ with Configuration('config.json') as config:
     engine = create_engine(config['db']['dsn'], 'usermanagement')
 
     # Creating the application
-    application = usermanagement.make_api(partial(Overhead, engine, service))
+    application = usermanagement.make_api(
+        partial(usermanagement.api.Overhead, engine, service))

@@ -3,17 +3,12 @@ usermanagement API
 
   >>> from webtest import TestApp as WSGIApp
   >>> from usermanagement import make_api
+  >>> from usermanagement.api import Overhead
   >>> from usermanagement.users import Base
 
-  >>> class Overhead:
-  ...     def __init__(self, engine, service, environ):
-  ...         self.engine = engine
-  ...         self.service = service
-  ...         self.environ = environ
-
   >>> def make_overhead(engine, service=None):
-  ...     def overhead(environ):
-  ...         return Overhead(engine, service, environ)
+  ...     def overhead(args):
+  ...         return Overhead(engine, service, args)
   ...     return overhead
 
   >>> from cromlech.sqlalchemy import create_engine
@@ -25,7 +20,7 @@ usermanagement API
   >>> with SQLAlchemySession(engine) as session:
   ...     Base.metadata.create_all()
 
-  >>> app = WSGIApp(make_api(overhead=make_overhead(engine)))
+  >>> app = WSGIApp(make_api(make_overhead(engine)))
 
 
 Error handling

@@ -45,9 +45,9 @@ class User(Base):
     )
 
 
-user_schema = JSONSchema(json.dumps(
+user_schema = JSONSchema.create_from_json(
     SchemaFactory(ForeignKeyWalker)(User, excludes='id')
-))
+)
 
 
 class ManageUser:
@@ -62,7 +62,7 @@ class ManageUser:
     def get(self, environ, overhead):
         listing = {
             'status': 'ok',
-            'fetched_user': overhead.routing['id'],
+            'fetched_user': overhead.parameters['id'],
         }
         return reply(
             200, 
@@ -87,7 +87,7 @@ class ManageUser:
         with SQLAlchemySession(overhead.engine) as session:
             listing = {
                 'status': 'ok',
-                'updated_user': overhead.routing['id'],
+                'updated_user': overhead.parameters['id'],
             }
         return reply(
             200, 
@@ -100,7 +100,7 @@ class ManageUser:
         with SQLAlchemySession(overhead.engine) as session:
             listing = {
                 'status': 'ok',
-                'deleted_user': overhead.routing['id'],
+                'deleted_user': overhead.parameters['id'],
             }
         return reply(
             200, 

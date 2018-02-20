@@ -62,9 +62,24 @@ def endpoint_routes(endpoint):
             yield url, route
 
 
+class Overhead:
+    
+    __slots__ = ('engine', 'service', 'parameters', 'identity', 'data')
+
+    def __init__(self, engine, service, args, identity=None):
+        self.engine = engine
+        self.service = service
+        self.parameters = args
+        self.identity = identity
+        self.data = None
+
+    def set_data(self, data):
+        self.data = data
+
+
 class API:
 
-    def __init__(self, mapper, overhead_factory=None):
+    def __init__(self, mapper, overhead_factory):
         self.overhead_factory = overhead_factory
         self.mapper = mapper
 
@@ -86,12 +101,7 @@ class API:
             # This is an error
             response = action
         else:
-            # We process the action
-            if self.overhead_factory is not None:
-                overhead = self.overhead_factory(environ)
-                overhead.routing = args
-            else:
-                overhead = None
+            overhead = self.overhead_factory(args)
             response = action(environ, overhead)
 
         return response(environ, start_response)
