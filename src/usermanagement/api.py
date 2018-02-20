@@ -47,24 +47,21 @@ def route(url, methods, action=None):
     return write_routing_attribute
 
 
-def is_routed(method):
-    return 'route' in getattr(method, '__annotations__', {})
-
-
 def endpoint_routes(endpoint, allowed=None):
-    methods = dict(inspect.getmembers(endpoint, predicate=is_routed))
+    methods = dict(inspect.getmembers(endpoint, inspect.ismethod))
     if not methods:
         raise TypeError('Endpoint has no route information')
     for name, method in methods.items():
-        url, methods, action = method.__annotations__['route']
-        if 'OPTIONS' in methods:
-            method = options(method, methods)
-        args = {
-            'controller': method,
-            'action': action,
-            'conditions': {"method": methods},
-        }
-        yield name, url, args
+        if 'route' in method.__annotations__:
+            url, methods, action = method.__annotations__['route']
+            if 'OPTIONS' in methods:
+                method = options(method, methods)
+            args = {
+                'controller': method,
+                'action': action,
+                'conditions': {"method": methods},
+            }
+            yield name, url, args
 
 
 class API(Endpoint):
