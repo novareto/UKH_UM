@@ -13,7 +13,8 @@ def options(controller, allowed):
     def permissive_options(environ, overhead):
         if environ['REQUEST_METHOD'].upper() == 'OPTIONS':
             r = reply(204)
-            r.headers["Access-Control-Allow-Origin"] = environ["HTTP_ORIGIN"]
+            # Origin might need some love.
+            r.headers["Access-Control-Allow-Origin"] = '*'
             r.headers["Access-Control-Allow-Credentials"] = "true"
             r.headers["Access-Control-Allow-Methods"] = ",".join(allowed)
             r.headers["Access-Control-Allow-Headers"] = (
