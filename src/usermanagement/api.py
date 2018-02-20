@@ -47,7 +47,7 @@ def route(url, methods, action=None):
     return write_routing_attribute
 
 
-def endpoint_routes(endpoint, allowed=None):
+def endpoint_routes(endpoint):
     methods = dict(inspect.getmembers(endpoint, inspect.ismethod))
     if not methods:
         raise TypeError('Endpoint has no route information')
