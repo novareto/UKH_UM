@@ -1,12 +1,11 @@
 # Make Me A Package
 
-from rutter import urlmap
-from .users import mapper as users_actions
-from dolmen.api_engine.components import Endpoint
+from routes import Mapper
+from .api import API
+from . import users
 
 
 def make_api(overhead=None):
-    # Creating the applications
-    application = urlmap.URLMap()
-    application['/users'] = Endpoint(users_actions, overhead)
+    application = API(Mapper(), overhead)
+    application['/users'] = users.module
     return application

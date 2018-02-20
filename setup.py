@@ -1,6 +1,5 @@
 1# -*- coding: utf-8 -*-
 
-from os.path import join
 from setuptools import setup, find_packages
 
 name = 'usermanagement'
@@ -11,7 +10,6 @@ history = ""
 
 install_requires = [
     'routes',
-    'rutter',
     'cromlech.jwt',
     'cromlech.sqlalchemy',
     'dolmen.api_engine',

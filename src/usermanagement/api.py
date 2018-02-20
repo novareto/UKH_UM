@@ -1,53 +1,26 @@
 # -*- coding: utf-8 -*-
 
-import json
 import inspect
+from posixpath import join as urljoin
 from functools import wraps
 from cromlech.jwt.components import TokenException
-from dolmen.api_engine.components import Action
 from dolmen.api_engine.responder import reply
+from dolmen.api_engine.components import Endpoint
 
 
-# We allow only 4 methods, no matter if you defined it or not
-# This is a site-wide policy to ensure consistency.
-ALLOWABLE_METHODS = frozenset(('PUT', 'DELETE', 'POST', 'GET'))
-
-
-def is_allowable_method(member):
-    return inspect.ismethod(member) and member.__name__ in ALLOWABLE_METHODS
-
-
-class filter_actions:
-
-    def __init__(self, *actions):
-        assert len(actions)
-        self.actions = frozenset(actions)
-
-    def __call__(self, verb):
-        @wraps(verb)
-        def assert_action(inst, environ, overhead):
-            # All the assertion errors are internal errors
-            # This is due to misconfiguration of routes.
-            assert overhead is not None
-            routing = getattr(overhead, 'routing', None)
-            assert routing is not None
-            action = routing.get('action')
-            assert action is not None
-            if action not in self.actions:
-                return reply(405)
-            return verb(inst, environ, overhead)
-        return assert_action
-
-
-def permissive_options(action, environ):
-    response = reply(204)
-    methods = dict(inspect.getmembers(action, predicate=is_allowable_method))
-    response.headers["Access-Control-Allow-Origin"] = environ["HTTP_ORIGIN"]
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Allow-Methods"] = ",".join(methods.keys())
-    response.headers["Access-Control-Allow-Headers"] = (
-        "Authorization, Content-Type, X-Requested-With")
-    return response
+def options(controller, allowed):
+    @wraps(controller)
+    def permissive_options(environ, overhead):
+        if environ['REQUEST_METHOD'].upper() == 'OPTIONS':
+            r = reply(204)
+            r.headers["Access-Control-Allow-Origin"] = environ["HTTP_ORIGIN"]
+            r.headers["Access-Control-Allow-Credentials"] = "true"
+            r.headers["Access-Control-Allow-Methods"] = ",".join(allowed)
+            r.headers["Access-Control-Allow-Headers"] = (
+                "Authorization, Content-Type, X-Requested-With")
+            return r
+        return controller(environ, overhead)
+    return permissive_options
 
 
 def protected(verb):
@@ -67,9 +40,53 @@ def protected(verb):
     return jwt_protection
 
 
-class BaseAction(Action):
+def route(url, methods, action=None):
+    def write_routing_attribute(routed):
+        routed.__annotations__['route'] = (url, methods, action)
+        return routed
+    return write_routing_attribute
 
-    def OPTIONS(self, environ, overhead):
-        """Very generic : allow ALL. Override to specialize.
-        """
-        return permissive_options(self, environ)
+
+def is_routed(method):
+    return 'route' in getattr(method, '__annotations__', {})
+
+
+def endpoint_routes(endpoint, allowed=None):
+    methods = dict(inspect.getmembers(endpoint, predicate=is_routed))
+    if not methods:
+        raise TypeError('Endpoint has no route information')
+    for name, method in methods.items():
+        url, methods, action = method.__annotations__['route']
+        if 'OPTIONS' in methods:
+            method = options(method, methods)
+        args = {
+            'controller': method,
+            'action': action,
+            'conditions': {"method": methods},
+        }
+        yield name, url, args
+
+
+class API(Endpoint):
+
+    def add_endpoint(self, path, endpoint):
+        routes = list(endpoint_routes(endpoint))
+        for name, url, args in routes:
+            routepath = urljoin(path, url.lstrip('/'))
+            self.mapper.connect(name, routepath, **args)
+
+    def __setitem__(self, name, value):
+        self.add_endpoint(name, value)
+
+    def routing(self, environ):
+        # We want to override default Routes behavior and have a real
+        # message for forbidden methods access.
+        path_info = environ['PATH_INFO'].encode('latin-1').decode('utf-8')
+        matching = self.mapper.routematch(path_info)
+        if matching is not None:
+            routing, route = matching
+            methods = route.conditions.get('method')
+            if methods and not environ['REQUEST_METHOD'].upper() in methods:
+                return reply(405)
+            return self.process_action(environ, routing)
+        return None

@@ -4,7 +4,6 @@ import os
 import json
 from functools import partial
 from loader import Configuration
-from collections import namedtuple
 
 
 class Overhead(object):
