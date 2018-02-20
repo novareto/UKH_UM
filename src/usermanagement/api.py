@@ -2,7 +2,6 @@
 
 import inspect
 from posixpath import join as urljoin
-from functools import wraps
 from cromlech.jwt.components import TokenException
 from dolmen.api_engine.components import BaseOverhead
 from dolmen.api_engine.responder import reply
@@ -50,7 +49,6 @@ def endpoint_routes(endpoint):
     if not methods:
         raise TypeError('Endpoint has no route information')
 
-    routes = []
     for name, method in methods.items():
         if 'route' in method.__annotations__:
             url, methods, action = method.__annotations__['route']
