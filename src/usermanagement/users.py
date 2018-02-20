@@ -58,7 +58,7 @@ class ManageUser:
             200, text=user_schema.string,
             content_type="application/json")
 
-    @route("/get/{id:\d+}", methods=['GET', 'OPTIONS'])
+    @route("/get/{id:digits}", methods=['GET', 'OPTIONS'])
     def get(self, environ, overhead):
         listing = {
             'status': 'ok',
@@ -80,7 +80,7 @@ class ManageUser:
             text=json.dumps(listing), 
             content_type="application/json") 
 
-    @route("/update/{id:\d+}", methods=['PUT', 'OPTIONS'])
+    @route("/update/{id:digits}", methods=['PUT', 'OPTIONS'])
     @user_schema.json_validator
     def update(self, environ, overhead):
         # Update
@@ -94,7 +94,7 @@ class ManageUser:
             text=json.dumps(listing, sort_keys=True), 
             content_type="application/json") 
 
-    @route("/delete/{id:\d+}", methods=['DELETE', 'OPTIONS'])
+    @route("/delete/{id:digits}", methods=['DELETE', 'OPTIONS'])
     def delete(self, environ, overhead):
         # delete
         with SQLAlchemySession(overhead.engine) as session:

@@ -32,7 +32,7 @@ Error handling
 --------------
 
   >>> response = app.get('/users', expect_errors=True)
-  >>> assert response.status_int == 400
+  >>> assert response.status_int == 404
 
   >>> response = app.post('/users/schema', {'a': 1}, expect_errors=True)
   >>> assert response.status_int == 405
@@ -133,7 +133,7 @@ Errors handling:
   ...     '/users/get',
   ...     expect_errors=True)
 
-  >>> assert response.body == b"Couldn't match any action. Please consult the API documentation."
+  >>> assert response.status_int == 404
 
 
 Providing an id:

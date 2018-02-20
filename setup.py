@@ -9,7 +9,7 @@ history = ""
 
 
 install_requires = [
-    'routes',
+    'selector',
     'cromlech.jwt',
     'cromlech.sqlalchemy',
     'dolmen.api_engine',

@@ -5,22 +5,18 @@ from posixpath import join as urljoin
 from functools import wraps
 from cromlech.jwt.components import TokenException
 from dolmen.api_engine.responder import reply
-from dolmen.api_engine.components import Endpoint
 
 
-def options(controller, allowed):
-    @wraps(controller)
+def options(allowed):
     def permissive_options(environ, overhead):
-        if environ['REQUEST_METHOD'].upper() == 'OPTIONS':
-            r = reply(204)
-            # Origin might need some love.
-            r.headers["Access-Control-Allow-Origin"] = '*'
-            r.headers["Access-Control-Allow-Credentials"] = "true"
-            r.headers["Access-Control-Allow-Methods"] = ",".join(allowed)
-            r.headers["Access-Control-Allow-Headers"] = (
-                "Authorization, Content-Type, X-Requested-With")
-            return r
-        return controller(environ, overhead)
+        r = reply(204)
+        # Origin might need some love.
+        r.headers["Access-Control-Allow-Origin"] = '*'
+        r.headers["Access-Control-Allow-Credentials"] = "true"
+        r.headers["Access-Control-Allow-Methods"] = ",".join(allowed)
+        r.headers["Access-Control-Allow-Headers"] = (
+            "Authorization, Content-Type, X-Requested-With")
+        return r
     return permissive_options
 
 
@@ -52,39 +48,50 @@ def endpoint_routes(endpoint):
     methods = dict(inspect.getmembers(endpoint, inspect.ismethod))
     if not methods:
         raise TypeError('Endpoint has no route information')
+
+    routes = []
     for name, method in methods.items():
         if 'route' in method.__annotations__:
             url, methods, action = method.__annotations__['route']
-            if 'OPTIONS' in methods:
-                method = options(method, methods)
-            args = {
-                'controller': method,
-                'action': action,
-                'conditions': {"method": methods},
-            }
-            yield url, args
+            route = {}
+            for http_method in methods:
+                if http_method == 'OPTIONS':
+                    route[http_method] = options(methods)
+                else:
+                    route[http_method] = method
+            yield url, route
 
 
-class API(Endpoint):
+class API:
+
+    def __init__(self, mapper, overhead_factory=None):
+        self.overhead_factory = overhead_factory
+        self.mapper = mapper
 
     def add_endpoint(self, path, endpoint):
         routes = list(endpoint_routes(endpoint))
         for url, args in routes:
             routepath = urljoin(path, url.lstrip('/'))
-            self.mapper.connect(None, routepath, **args)
+            self.mapper.add(routepath, method_dict=args)
 
     def __setitem__(self, name, value):
         self.add_endpoint(name, value)
-
-    def routing(self, environ):
-        # We want to override default Routes behavior and have a real
-        # message for forbidden methods access.
+        
+    def __call__(self, environ, start_response):
         path_info = environ['PATH_INFO'].encode('latin-1').decode('utf-8')
-        matching = self.mapper.routematch(path_info)
-        if matching is not None:
-            routing, route = matching
-            methods = route.conditions.get('method')
-            if methods and not environ['REQUEST_METHOD'].upper() in methods:
-                return reply(405)
-            return self.process_action(environ, routing)
-        return None
+        action, args, allowed, path = self.mapper.select(
+            path_info, environ['REQUEST_METHOD'])
+
+        if not path:
+            # This is an error
+            response = action
+        else:
+            # We process the action
+            if self.overhead_factory is not None:
+                overhead = self.overhead_factory(environ)
+                overhead.routing = args
+            else:
+                overhead = None
+            response = action(environ, overhead)
+
+        return response(environ, start_response)
