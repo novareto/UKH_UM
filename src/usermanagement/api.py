@@ -61,16 +61,16 @@ def endpoint_routes(endpoint):
                 'action': action,
                 'conditions': {"method": methods},
             }
-            yield name, url, args
+            yield url, args
 
 
 class API(Endpoint):
 
     def add_endpoint(self, path, endpoint):
         routes = list(endpoint_routes(endpoint))
-        for name, url, args in routes:
+        for url, args in routes:
             routepath = urljoin(path, url.lstrip('/'))
-            self.mapper.connect(name, routepath, **args)
+            self.mapper.connect(None, routepath, **args)
 
     def __setitem__(self, name, value):
         self.add_endpoint(name, value)
