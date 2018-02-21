@@ -35,5 +35,7 @@ with Configuration('config.json') as config:
     engine = create_engine(config['db']['dsn'], 'usermanagement')
 
     # Creating the application
-    application = usermanagement.make_api(
-        partial(usermanagement.api.Overhead, engine, service))
+    overhead_factory = partial(usermanagement.Overhead, engine, service)
+    application = usermanagement.API(overhead_factory)
+    application['/users'] = usermanagement.users.modules
+    application['/auth'] = usermanagement.auth.modules

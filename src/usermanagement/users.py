@@ -108,4 +108,4 @@ class ManageUser:
             content_type="application/json")
 
 
-module = ManageUser()
+modules = (ManageUser(),)

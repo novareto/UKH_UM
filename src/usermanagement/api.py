@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import inspect
+from abc import ABC
+from selector import Selector
 from cromlech.jwt.components import TokenException
-from dolmen.api_engine.components import BaseOverhead
+from dolmen.api_engine.components import BaseOverhead, APIView, APINode
 from dolmen.api_engine.responder import reply
+from dolmen.api_engine.definitions import METHODS
 
 
 def options(allowed):
@@ -36,37 +39,58 @@ def protected(verb):
     return jwt_protection
 
 
-def route(url, methods):
+def route(url, methods=None):
     def write_routing_attribute(routed):
-        routed.__annotations__['route'] = (url, methods)
+        if inspect.isclass(routed):
+            if issubclass(routed, APIView):
+                routed._route = url
+                return routed
+            raise RuntimeError(
+                'In order to route classes, you need to subclass APIView.')
+        elif inspect.isfunction(routed):
+            if not methods:
+                raise RuntimeError(
+                    'No HTTP methods defined for {0}'.format(routed))
+            routed.__annotations__['route'] = (url, methods)
+        else:
+            raise RuntimeError(
+                'You can only route functions or APIView subclasses')
         return routed
     return write_routing_attribute
 
 
 def endpoint_routes(endpoint):
-    methods = dict(inspect.getmembers(endpoint, inspect.ismethod))
-    if not methods:
-        raise TypeError('Endpoint has no route information')
+    if isinstance(endpoint, APIView):
+        route = {}
+        for verb in METHODS:
+            method = getattr(endpoint, verb, None)
+            if method is not None:
+                route[verb] = method
+        yield endpoint._route, route
+    else:
+        methods = dict(inspect.getmembers(endpoint, inspect.ismethod))
+        if not methods:
+            raise TypeError('Endpoint has no route information')
 
-    for name, method in methods.items():
-        if 'route' in method.__annotations__:
-            route = {}
-            url, methods = method.__annotations__['route']
-            for verb in methods:
-                if verb == 'OPTIONS':
-                    route[verb] = options(methods)
-                else:
-                    route[verb] = method
-            yield url, route
+        for name, method in methods.items():
+            if 'route' in method.__annotations__:
+                route = {}
+                url, methods = method.__annotations__['route']
+                for verb in methods:
+                    if verb == 'OPTIONS':
+                        route[verb] = options(methods)
+                    else:
+                        route[verb] = method
+                yield url, route
 
 
 class Overhead(BaseOverhead):
 
     __slots__ = ('engine', 'service', 'parameters', 'identity', 'data')
 
-    def __init__(self, engine, service, args, identity=None):
+    def __init__(self, engine, jwt_service, args, identity=None):
         self.engine = engine
-        self.service = service
+        self.jwt_service = jwt_service
         self.parameters = args
         self.identity = identity
         self.data = None
@@ -75,30 +99,33 @@ class Overhead(BaseOverhead):
         self.data = data
 
 
-class API:
-
-    def __init__(self, mapper, overhead_factory):
-        self.overhead_factory = overhead_factory
+class API(APINode):
+    
+    def __init__(self, overhead_factory):
+        mapper = Selector()
+        mapper.status404 = reply(404)
+        mapper.status405 = reply(405)
         self.mapper = mapper
+        self.overhead_factory = overhead_factory
 
     def add_endpoint(self, path, endpoint):
         routes = list(endpoint_routes(endpoint))
         for url, args in routes:
             self.mapper.add(url, method_dict=args, prefix=path)
 
-    def __setitem__(self, name, value):
-        self.add_endpoint(name, value)
+    def __setitem__(self, name, values):
+        for value in values:
+            self.add_endpoint(name, value)
 
-    def __call__(self, environ, start_response):
-        path_info = environ['PATH_INFO'].encode('latin-1').decode('utf-8')
-        action, args, allowed, path = self.mapper.select(
-            path_info, environ['REQUEST_METHOD'])
-
+    def process_endpoint(self, environ, routing_args):
+        action, args, allowed, path = routing_args
         if not path:
             # This is an error
             response = action
         else:
             overhead = self.overhead_factory(args)
             response = action(environ, overhead)
-
-        return response(environ, start_response)
+        return response
+            
+    def lookup(self, path_info, environ):
+        return self.mapper.select(path_info, environ['REQUEST_METHOD'])
