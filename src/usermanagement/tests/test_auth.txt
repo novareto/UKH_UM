@@ -2,3 +2,19 @@ usermanagement API
 ==================
 
   >>> app = getfixture('application')
+
+
+Login
+-----
+
+  >>> from usermanagement.auth import login_schema
+  >>> response = app.get('/auth/login')
+  >>> assert response.body == bytes(login_schema.string, 'utf-8')
+
+  >>> user = '{"username": "cklinger@novareto.de", "password": "test"}'
+  >>> response = app.post(
+  ...     '/auth/login', user,
+  ...     headers={'Content-Type': 'application/json'},
+  ...     expect_errors=False)
+  >>> assert response.status_code == 200
+  >>> assert 'token' in response.json
