@@ -1,0 +1,4 @@
+usermanagement API
+==================
+
+  >>> app = getfixture('application')

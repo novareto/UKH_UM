@@ -1,27 +1,7 @@
 usermanagement API
 ==================
 
-  >>> from webtest import TestApp as WSGIApp
-  >>> import usermanagement
-
-  >>> def make_overhead(engine, service=None):
-  ...     def overhead(args):
-  ...         return usermanagement.Overhead(engine, service, args)
-  ...     return overhead
-
-  >>> from cromlech.sqlalchemy import create_engine
-  >>> engine = create_engine("sqlite://", "tests")
-
-  >>> from cromlech.sqlalchemy import SQLAlchemySession
-
-  >>> engine.bind(usermanagement.UsersBase)
-  >>> with SQLAlchemySession(engine) as session:
-  ...     usermanagement.UsersBase.metadata.create_all()
-
-  >>> api = usermanagement.API(make_overhead(engine))
-  >>> api['/users'] = usermanagement.users.modules
-  >>> api['/auth'] = usermanagement.auth.modules
-  >>> app = WSGIApp(api)
+  >>> app = getfixture('application')
 
 
 Error handling
