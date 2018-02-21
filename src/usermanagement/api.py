@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import inspect
-from posixpath import join as urljoin
 from cromlech.jwt.components import TokenException
 from dolmen.api_engine.components import BaseOverhead
 from dolmen.api_engine.responder import reply
@@ -37,9 +36,9 @@ def protected(verb):
     return jwt_protection
 
 
-def route(url, methods, action=None):
+def route(url, methods):
     def write_routing_attribute(routed):
-        routed.__annotations__['route'] = (url, methods, action)
+        routed.__annotations__['route'] = (url, methods)
         return routed
     return write_routing_attribute
 
@@ -51,13 +50,13 @@ def endpoint_routes(endpoint):
 
     for name, method in methods.items():
         if 'route' in method.__annotations__:
-            url, methods, action = method.__annotations__['route']
             route = {}
-            for http_method in methods:
-                if http_method == 'OPTIONS':
-                    route[http_method] = options(methods)
+            url, methods = method.__annotations__['route']
+            for verb in methods:
+                if verb == 'OPTIONS':
+                    route[verb] = options(methods)
                 else:
-                    route[http_method] = method
+                    route[verb] = method
             yield url, route
 
 
@@ -85,8 +84,7 @@ class API:
     def add_endpoint(self, path, endpoint):
         routes = list(endpoint_routes(endpoint))
         for url, args in routes:
-            routepath = urljoin(path, url.lstrip('/'))
-            self.mapper.add(routepath, method_dict=args)
+            self.mapper.add(url, method_dict=args, prefix=path)
 
     def __setitem__(self, name, value):
         self.add_endpoint(name, value)
