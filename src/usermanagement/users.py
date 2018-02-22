@@ -109,7 +109,6 @@ class ManageUser:
             content_type="application/json")
 
     @route("/list[/{department}]", methods=['GET', 'OPTIONS'])
-    @protected
     def list(self, environ, overhead):
         # list users by departement
         listing = []
