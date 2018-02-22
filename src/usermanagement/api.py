@@ -13,8 +13,6 @@ from dolmen.api_engine.definitions import METHODS
 def options(allowed):
     def permissive_options(environ, overhead):
         r = reply(204)
-        # Origin might need some love.
-        r.headers["Access-Control-Allow-Origin"] = environ.get('ORIGIN', '*')
         r.headers["Access-Control-Allow-Credentials"] = "true"
         r.headers["Access-Control-Allow-Methods"] = ",".join(allowed)
         r.headers["Access-Control-Allow-Headers"] = (
@@ -63,11 +61,7 @@ def route(url, methods=None):
 
 def endpoint_routes(endpoint):
     if isinstance(endpoint, APIView):
-        route = {}
-        for verb in METHODS:
-            method = getattr(endpoint, verb, None)
-            if method is not None:
-                route[verb] = method
+        route = {'_ANY_': endpoint.__call__}
         yield endpoint._route, route
     else:
         methods = dict(inspect.getmembers(endpoint, inspect.ismethod))
