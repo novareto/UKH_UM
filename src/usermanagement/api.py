@@ -2,6 +2,7 @@
 
 import inspect
 from selector import Selector
+from functools import wraps
 from cromlech.jwt.components import TokenException
 from dolmen.api_engine.cors import allow_origins
 from dolmen.api_engine.components import BaseOverhead, APIView, APINode
@@ -13,7 +14,7 @@ def options(allowed):
     def permissive_options(environ, overhead):
         r = reply(204)
         # Origin might need some love.
-        r.headers["Access-Control-Allow-Origin"] = environ.get('ORIGIN', '')
+        r.headers["Access-Control-Allow-Origin"] = environ.get('ORIGIN', '*')
         r.headers["Access-Control-Allow-Credentials"] = "true"
         r.headers["Access-Control-Allow-Methods"] = ",".join(allowed)
         r.headers["Access-Control-Allow-Headers"] = (
@@ -22,16 +23,17 @@ def options(allowed):
     return permissive_options
 
 
-def protected(verb):
+def protected(method):
+    @wraps(method)
     def jwt_protection(inst, environ, overhead):
         header = environ.get('HTTP_AUTHORIZATION')
         if header is not None and header.startswith('Bearer '):
             token = header[7:]
             try:
-                payload = overhead.jwt.authenticate(token)
+                payload = overhead.jwt_service.check_token(token)
                 if payload is not None:
-                    overhead.auth_payload = environ['jwt.payload'] = payload
-                    return verb(inst, environ, overhead)
+                    overhead.identity = environ['jwt.payload'] = payload
+                    return method(inst, environ, overhead)
             except TokenException:
                 # Do we need some kind of log ?
                 pass
@@ -76,11 +78,11 @@ def endpoint_routes(endpoint):
             if 'route' in method.__annotations__:
                 route = {}
                 url, methods = method.__annotations__['route']
-                for verb in methods:
-                    if verb == 'OPTIONS':
-                        route[verb] = options(methods)
+                for http_method in methods:
+                    if http_method == 'OPTIONS':
+                        route[http_method] = options(methods)
                     else:
-                        route[verb] = method
+                        route[http_method] = method
                 yield url, route
 
 

@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declarative_base
 from alchemyjsonschema import SchemaFactory
 from alchemyjsonschema import ForeignKeyWalker
-from .api import route
+from .api import route, protected
 from .auth import USERS
 
 
@@ -109,6 +109,7 @@ class ManageUser:
             content_type="application/json")
 
     @route("/list[/{department}]", methods=['GET', 'OPTIONS'])
+    @protected
     def list(self, environ, overhead):
         # list users by departement
         listing = []
@@ -126,6 +127,15 @@ class ManageUser:
             200,
             text=json.dumps(listing, sort_keys=True),
             content_type="application/json")
+
+    @route("/personal", methods=['GET', 'OPTIONS'])
+    @protected
+    def personal_info(self, environ, overhead):
+        user = USERS.get(overhead.identity['user'])
+        if user is not None:
+            info = json.dumps(user['profile'], indent=4, sort_keys=True)
+            return reply(200, text=info, content_type="application/json")
+        return reply(404)
 
 
 modules = (ManageUser(),)
