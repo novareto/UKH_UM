@@ -3,7 +3,7 @@
 import json
 from dolmen.api_engine.responder import reply
 from dolmen.api_engine.validation import JSONSchema
-from .api import route, APIView
+from .api import route, APIView, options
 
 
 USERS = {
@@ -14,6 +14,7 @@ USERS = {
             'company': 'Novareto',
             'title': 'Director',
             'created': '2018-02-21',
+            'departments': ['IT', 'HR'],
             'emails': [
                 'cklinger@novareto.de',
                 'ck@novareto.de',
@@ -57,6 +58,8 @@ login_schema = JSONSchema.create_from_string("""
 @route('/login')
 class Login(APIView):
 
+    OPTIONS = staticmethod(options(['GET', 'POST']))
+
     def GET(self, environ, overhead):
         return reply(
             200, text=login_schema.string,
@@ -74,4 +77,20 @@ class Login(APIView):
         return reply(401)
 
 
-modules = (Login(),)
+@route('/signup')
+class Signup(APIView):
+
+    OPTIONS = staticmethod(options(['GET', 'POST']))
+    
+    def GET(self, environ, overhead):
+        return reply(
+            200, text=login_schema.string,
+            content_type="application/json")
+
+    @login_schema.json_validator
+    def POST(self, environ, overhead):
+        user = USERS.get(overhead.data['username'])
+        return reply(202)
+
+
+modules = (Login(), Signup())

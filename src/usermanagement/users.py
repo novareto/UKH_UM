@@ -10,6 +10,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from alchemyjsonschema import SchemaFactory
 from alchemyjsonschema import ForeignKeyWalker
 from .api import route
+from .auth import USERS
 
 
 Base = declarative_base()
@@ -102,6 +103,25 @@ class ManageUser:
                 'status': 'ok',
                 'deleted_user': overhead.parameters['id'],
             }
+        return reply(
+            200,
+            text=json.dumps(listing, sort_keys=True),
+            content_type="application/json")
+
+    @route("/list[/{department}]", methods=['GET', 'OPTIONS'])
+    def list(self, environ, overhead):
+        # list users by departement
+        listing = []
+        department = overhead.parameters.get('department')
+        for username, details in USERS.items():
+            payload = details['profile'] 
+            if not department:
+                listing.append({username: payload})
+            elif department in payload['departments']:
+                listing.append({username: payload})
+
+        if department and not listing:
+            return reply(404, text="No matching users found.")
         return reply(
             200,
             text=json.dumps(listing, sort_keys=True),

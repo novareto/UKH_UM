@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import inspect
-from abc import ABC
 from selector import Selector
 from cromlech.jwt.components import TokenException
+from dolmen.api_engine.cors import allow_origins
 from dolmen.api_engine.components import BaseOverhead, APIView, APINode
 from dolmen.api_engine.responder import reply
 from dolmen.api_engine.definitions import METHODS
@@ -13,7 +13,7 @@ def options(allowed):
     def permissive_options(environ, overhead):
         r = reply(204)
         # Origin might need some love.
-        r.headers["Access-Control-Allow-Origin"] = '*'
+        r.headers["Access-Control-Allow-Origin"] = environ.get('ORIGIN', '')
         r.headers["Access-Control-Allow-Credentials"] = "true"
         r.headers["Access-Control-Allow-Methods"] = ",".join(allowed)
         r.headers["Access-Control-Allow-Headers"] = (
@@ -124,7 +124,7 @@ class API(APINode):
             response = action
         else:
             overhead = self.overhead_factory(args)
-            response = action(environ, overhead)
+            response = allow_origins('*')(action)(environ, overhead)
         return response
             
     def lookup(self, path_info, environ):
