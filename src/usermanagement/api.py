@@ -1,13 +1,19 @@
 # -*- coding: utf-8 -*-
 
+import json
 import inspect
 from selector import Selector
 from functools import wraps
+from collections import namedtuple, Iterable
 from cromlech.jwt.components import TokenException
+from dolmen.api_engine import validation
 from dolmen.api_engine.cors import allow_origins
-from dolmen.api_engine.components import BaseOverhead, APIView, APINode
+from dolmen.api_engine.components import BaseOverhead, View, APIView, APINode
 from dolmen.api_engine.responder import reply
 from dolmen.api_engine.definitions import METHODS
+
+
+NOTHING = object()
 
 
 def options(allowed):
@@ -125,3 +131,137 @@ class API(APINode):
             
     def lookup(self, path_info, environ):
         return self.mapper.select(path_info, environ['REQUEST_METHOD'])
+
+
+def string_validator(value, max=None, min=0, **kwargs):
+    if not isinstance(value, str):
+        raise TypeError('Value must be a string type')
+    if min and max:
+        if not (min <= len(value) <= max):
+            raise ValueError(
+                'Value length must be between {0} and {1} characters.'.format(
+                    min, max
+                ))
+    elif min:
+        if min > len(value):
+            raise ValueError(
+                'Value length must be at least {0} characters.'.format(min))
+    elif max:
+        if max < len(value):
+            raise ValueError(
+                'Value length must be at most {0} characters.'.format(max))
+    return True
+
+
+def select_validator(value, values=None, **kwargs):
+    if not value in values:
+        raise ValueError('Value is must be contained in {0}.'.format(values))
+    return True
+
+
+def generic_validator(
+        value, readonly=False, disabled=False, required=False, **kwargs):
+    if value is NOTHING or not value:
+        if required is True:
+            raise ValueError('Value is missing.')
+        return False
+    else:
+        if readonly is True:
+            raise ValueError('Value is readonly.')
+    return True
+
+
+class validate_vbg:
+
+    extractors = {
+        'GET': validation.extract_get,
+        'POST': validation.extract_post,
+        'PUT': validation.extract_put,
+    }
+
+    validators = {
+        "input": (generic_validator, string_validator),
+        "select": (generic_validator, select_validator),
+    }
+
+    def __init__(self, schema):
+        self.schema = schema  # Python structure
+        self.fields = schema['fields']
+
+    def extract(self, environ):
+        method = environ['REQUEST_METHOD']
+        extractor = self.extractors.get(method)
+        if extractor is None:
+            raise NotImplementedError('No extractor for method %s' % method)
+        return extractor(environ)
+
+    def validate(self, fields, data):
+        errors = []
+        extracted = {}
+        for field in fields:
+            fname = field['model']
+            value = data.get(fname, field.get('default', NOTHING))
+            validators = self.validators.get(field['type'], None)
+            if validators is None:
+                raise TypeError('Unknown field type: {0}'.format(vtype))
+            for validator in validators:
+                try:
+                    further = validator(value, **field)
+                    if not further:
+                        break
+                except (TypeError, ValueError) as error:
+                    errors.append((field['model'], error))
+                    break
+                finally:
+                    # It was extracted, whatever the cost !
+                    extracted[fname] = value
+
+        return extracted, errors
+
+    def process_action(self, environ):
+        params = self.extract(environ)
+        extracted, errors = self.validate(self.fields, params)
+        if errors:
+            summary = {}
+            for field, error in errors:
+                doc = getattr(error, 'doc', error.__str__)
+                field_errors = summary.setdefault(field, [])
+                field_errors.append(doc())
+            return extracted, summary
+        return extracted, None
+
+    def __call__(self, action):
+        @wraps(action)
+        def method_validation(*args):
+            if isinstance(args[0], View):
+                inst, environ, overhead = args
+            else:
+                inst = None
+                environ, overhead = args
+
+            extracted, errors = self.process_action(environ)
+            if errors:
+                return reply(
+                    400, text=json.dumps(errors),
+                    content_type="application/json")
+            
+            else:
+                if self.as_dict:
+                    result = extracted
+                else:
+                    names = tuple((field['model'] for field in self.fields))
+                    DataClass = namedtuple(action.__name__, names)
+                    results = DataClass(**extracted)
+
+                if overhead is None:
+                    overhead = result
+                else:
+                    assert isinstance(overhead, BaseOverhead)
+                    overhead.set_data(result)
+
+                if inst is not None:
+                    return action(inst, environ, overhead)
+                return action(environ, overhead)
+
+            return result
+        return method_validation
