@@ -16,6 +16,7 @@ install_requires = [
     'zope.interface',
     'zope.schema',
     'alchemyjsonschema',
+    'ukh.ibmdbsa'
     ]
 
 

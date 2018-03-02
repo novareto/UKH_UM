@@ -17,41 +17,78 @@ Base = declarative_base()
 
 
 class User(Base):
-    __tablename__ = "User"
+    __tablename__ = "z1ehr1aa_t"
+    __table_args__ = {"schema": 'UKHINTERN'}
 
-    id = sa.Column(
-        sa.Integer,
-        primary_key=True,
-        doc="primary key",
-    )
+    oid = sa.Column('oid', sa.Integer, primary_key=True)
 
-    name = sa.Column(
+    vname = sa.Column(
+        'vname',
         sa.String(255),
         nullable=False,
     )
 
-    surname = sa.Column(
+    nname = sa.Column(
+        'nname',
         sa.String(255),
         nullable=False,
     )
 
-    password = sa.Column(
-        sa.String(255),
-        nullable=False,
-    )
-
-    companyID = sa.Column(
+    passwort = sa.Column(
+        'passwort',
         sa.String(255),
         nullable=False,
     )
 
 
 user_schema = JSONSchema.create_from_json(
-    SchemaFactory(ForeignKeyWalker)(User, excludes='id')
+    SchemaFactory(ForeignKeyWalker)(User, excludes='oid')
 )
 
 
-class ManageUser:
+from zope import interface, schema
+from dolmen.api_engine.validation import validate
+
+class ISearch(interface.Interface):
+
+    search = schema.TextLine(
+        title=u"Search String", 
+        )
+
+
+from dolmen.api_engine.components import View
+class ManageUser(View):
+
+    @route("/helper", methods=['GET', 'OPTIONS'])
+    def helper(self, environ, overhead):
+        # Create
+        with SQLAlchemySession(overhead.engine) as session:
+            print (session)
+            session.query(User).all()
+            import pdb; pdb.set_trace()
+            print ("all good")
+        return reply(200, text="ALL GOOD", content_type="application/json")
+
+    @route("/search", methods=['POST', 'OPTIONS'])
+    @validate(ISearch, as_dict=True)
+    def search(self, environ, overhead):
+        # Create
+        query= overhead.data['search']
+        listing = []
+        with SQLAlchemySession(overhead.engine) as session:
+            for user in session.query(User).filter(User.nname == query).all():
+                listing.append(
+                    dict(
+                        oid=str(user.oid),
+                        vname=user.vname.strip(),
+                        nname=user.nname.strip()
+                    )
+                )
+        return reply(
+            200,
+            text=json.dumps(listing, sort_keys=True),
+            content_type="application/json")
+        return reply(200, text="ALL GOOD", content_type="application/json")
 
     @route("/schema", methods=['GET', 'OPTIONS'])
     def schema(self, environ, overhead):
@@ -112,16 +149,15 @@ class ManageUser:
     def list(self, environ, overhead):
         # list users by departement
         listing = []
-        department = overhead.parameters.get('department')
-        for username, details in USERS.items():
-            payload = details['profile'] 
-            if not department:
-                listing.append({username: payload})
-            elif department in payload['departments']:
-                listing.append({username: payload})
-
-        if department and not listing:
-            return reply(404, text="No matching users found.")
+        with SQLAlchemySession(overhead.engine) as session:
+            for user in session.query(User).all():
+                listing.append(
+                    dict(
+                        oid=str(user.oid),
+                        vname=user.vname.strip(),
+                        nname=user.nname.strip()
+                    )
+                )
         return reply(
             200,
             text=json.dumps(listing, sort_keys=True),
