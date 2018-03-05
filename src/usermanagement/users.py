@@ -49,7 +49,7 @@ SCHEMA = {
             'type': "input",
             'inputType': "text",
             'label': "ID (disabled text field)",
-            'model': "id",
+            'model': "oid",
             'readonly': True,
             'disabled': True,
         },
@@ -57,7 +57,7 @@ SCHEMA = {
             'type': "input",
             'inputType': "text",
             'label': "Name",
-            'model': "name",
+            'model': "vname",
             'placeholder': "Your name",
             'featured': True,
             'required': True,
@@ -66,7 +66,7 @@ SCHEMA = {
             'type': "input",
             'inputType': "surname",
             'label': "Surname",
-            'model': "surname",
+            'model': "nname",
             'placeholder': "User's surname",
             'required': True,
         },
@@ -74,18 +74,10 @@ SCHEMA = {
             'type': "input",
             'inputType': "password",
             'label': "Password",
-            'model': "password",
+            'model': "passwort",
             'min': 6,
             'required': True,
             'hint': "Minimum 6 characters",
-            'required': True,
-        },
-        {
-            'type': "input",
-            'inputType': "companyID",
-            'label': "Surname",
-            'model': "companyID",
-            'placeholder': "User's company",
             'required': True,
         },
     ],
@@ -126,8 +118,8 @@ class ManageUser(View):
                 listing.append(
                     dict(
                         oid=str(user.oid),
-                        vname=user.vname.strip(),
-                        nname=user.nname.strip()
+                        vname=user.vname,
+                        nname=user.nname,
                     )
                 )
         return reply(
@@ -144,35 +136,60 @@ class ManageUser(View):
 
     @route("/get/{id:digit}", methods=['GET', 'OPTIONS'])
     def get(self, environ, overhead):
-        listing = {
-            'status': 'ok',
-            'fetched_user': overhead.parameters['id'],
-        }
+        data = None
+        with SQLAlchemySession(overhead.engine) as session:
+            user = session.query(User).get(overhead.parameters['id'])
+            if user is not None:
+                data = dict(
+                    oid=str(user.oid),
+                    vname=user.vname,
+                    nname=user.nname,
+                )
+                
+        if data is None:
+            listing = {
+                'status': 'error',
+            }
+        else:
+            listing = {
+                'status': 'ok',
+                'model': data,
+            }
         return reply(
             200,
             text=json.dumps(listing, sort_keys=True),
             content_type="application/json")
 
     @route("/create", methods=['POST', 'OPTIONS'])
-    @validate_vbg(SCHEMA)
+    @validate_vbg(SCHEMA, as_dict=True)
     def create(self, environ, overhead):
-        # Create
         with SQLAlchemySession(overhead.engine) as session:
-            listing = {'status': 'ok'}
+            user = User(**overhead.data)
+            session.add(user)
+        listing = {
+            'status': 'ok',
+        }
         return reply(
             200,
             text=json.dumps(listing),
             content_type="application/json")
 
     @route("/update/{id:digit}", methods=['PUT', 'OPTIONS'])
-    @validate_vbg(SCHEMA)
+    @validate_vbg(SCHEMA, as_dict=True)
     def update(self, environ, overhead):
-        # Update
+        updated = True
         with SQLAlchemySession(overhead.engine) as session:
-            listing = {
-                'status': 'ok',
-                'updated_user': overhead.parameters['id'],
-            }
+            user = session.query(User).get(overhead.parameters['id'])
+            if user is not None:
+                for field, value in overhead.data.items():
+                    setattr(user, field, value)
+            else:
+                updated = False
+            
+        listing = {
+            'status': updated and 'ok' or 'error',
+            'updated_user': overhead.parameters['id'],
+        }
         return reply(
             200,
             text=json.dumps(listing, sort_keys=True),
@@ -181,29 +198,26 @@ class ManageUser(View):
     @route("/delete/{id:digit}", methods=['DELETE', 'OPTIONS'])
     def delete(self, environ, overhead):
         # delete
+        
         with SQLAlchemySession(overhead.engine) as session:
-            listing = {
-                'status': 'ok',
-                'deleted_user': overhead.parameters['id'],
-            }
+            session.query(User).get(overhead.parameters['id']).delete()
+        listing = {
+            'status': 'ok',
+            'deleted_user': overhead.parameters['id'],
+        }
         return reply(
             200,
             text=json.dumps(listing, sort_keys=True),
             content_type="application/json")
 
-    @route("/list[/{department}]", methods=['GET', 'OPTIONS'])
+    @route("/list", methods=['GET', 'OPTIONS'])
     def list(self, environ, overhead):
-        # list users by departement
-        listing = []
-        with SQLAlchemySession(overhead.engine) as session:
-            for user in session.query(User).all():
-                listing.append(
-                    dict(
+        with SQLAlchemySession(overhead.engine) as session:            
+            listing = [dict(
                         oid=str(user.oid),
                         vname=user.vname.strip(),
                         nname=user.nname.strip()
-                    )
-                )
+                    ) for user in session.query(User).slice(0,5000).all()]
         return reply(
             200,
             text=json.dumps(listing, sort_keys=True),

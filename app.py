@@ -22,11 +22,15 @@ def get_key(path):
     return key
 
 
+with open('test_data/data.json', 'r') as fd:
+    usersdata = json.load(fd)
+
+
 with Configuration('config.json') as config:
     import usermanagement
     import bjoern
     from cromlech.jwt.components import JWTHandler, JWTService
-    from cromlech.sqlalchemy import create_engine
+    from cromlech.sqlalchemy import create_engine, SQLAlchemySession
     
     # Getting the crypto key and creating the JWT service
     key = get_key(config['crypto']['keypath'])
@@ -35,10 +39,22 @@ with Configuration('config.json') as config:
     # SQLEngine
     engine = create_engine(config['db']['dsn'], 'usermanagement')
 
+    # We Bind and Create
+    engine.bind(usermanagement.UsersBase)
+    print('-- creating tests users --')
+    with SQLAlchemySession(engine) as session:
+        usermanagement.UsersBase.metadata.create_all()
+        for userdata in usersdata:
+            userdata['passwort'] = 'test42'
+            user = usermanagement.users.User(**userdata)
+            session.add(user)
+    print('-- created {} users --\n'.format(len(usersdata)))
+
     # Creating the application
     overhead_factory = partial(usermanagement.Overhead, engine, service)
     application = usermanagement.API(overhead_factory)
     application['/users'] = usermanagement.users.modules
     application['/auth'] = usermanagement.auth.modules
 
+    print('-- starting --')
     bjoern.run(application, '0.0.0.0', 8080)

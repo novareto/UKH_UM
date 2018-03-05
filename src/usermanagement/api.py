@@ -170,9 +170,6 @@ def generic_validator(
         if required is True:
             raise ValueError('Value is missing.')
         return False
-    else:
-        if readonly is True:
-            raise ValueError('Value is readonly.')
     return True
 
 
@@ -220,7 +217,9 @@ class validate_vbg:
                     break
                 finally:
                     # It was extracted, whatever the cost !
-                    extracted[fname] = value
+                    if value is not NOTHING:
+                        if not field.get('readonly', False):
+                            extracted[fname] = value
 
         return extracted, errors
 
