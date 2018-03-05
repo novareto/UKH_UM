@@ -7,6 +7,10 @@ from dolmen.api_engine.responder import reply
 import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declarative_base
 from dolmen.api_engine.components import View
+from zope import interface, schema
+from dolmen.api_engine.validation import validate
+from dolmen.api_engine.components import View
+
 from .api import route, protected, validate_vbg
 from .auth import USERS
 
@@ -16,7 +20,7 @@ Base = declarative_base()
 
 class User(Base):
     __tablename__ = "z1ehr1aa_t"
-    __table_args__ = {"schema": 'UKHINTERN'}
+    #__table_args__ = {"schema": 'UKHINTERN'}
 
     oid = sa.Column('oid', sa.Integer, primary_key=True)
 
@@ -38,10 +42,6 @@ class User(Base):
         nullable=False,
     )
 
-
-user_schema = JSONSchema.create_from_json(
-    SchemaFactory(ForeignKeyWalker)(User, excludes='oid')
-)
 
 SCHEMA = {
     'fields': [
@@ -93,8 +93,7 @@ SCHEMA = {
 
 SCHEMA_STRING = json.dumps(SCHEMA, sort_keys=True, indent=4)
 
-from zope import interface, schema
-from dolmen.api_engine.validation import validate
+
 
 class ISearch(interface.Interface):
 
@@ -103,7 +102,7 @@ class ISearch(interface.Interface):
         )
 
 
-from dolmen.api_engine.components import View
+
 class ManageUser(View):
 
     @route("/helper", methods=['GET', 'OPTIONS'])
@@ -143,7 +142,7 @@ class ManageUser(View):
             200, text=SCHEMA_STRING,
             content_type="application/json")
 
-    @route("/get/{id:digits}", methods=['GET', 'OPTIONS'])
+    @route("/get/{id:digit}", methods=['GET', 'OPTIONS'])
     def get(self, environ, overhead):
         listing = {
             'status': 'ok',
@@ -165,7 +164,7 @@ class ManageUser(View):
             text=json.dumps(listing),
             content_type="application/json")
 
-    @route("/update/{id:digits}", methods=['PUT', 'OPTIONS'])
+    @route("/update/{id:digit}", methods=['PUT', 'OPTIONS'])
     @validate_vbg(SCHEMA)
     def update(self, environ, overhead):
         # Update
@@ -179,7 +178,7 @@ class ManageUser(View):
             text=json.dumps(listing, sort_keys=True),
             content_type="application/json")
 
-    @route("/delete/{id:digits}", methods=['DELETE', 'OPTIONS'])
+    @route("/delete/{id:digit}", methods=['DELETE', 'OPTIONS'])
     def delete(self, environ, overhead):
         # delete
         with SQLAlchemySession(overhead.engine) as session:

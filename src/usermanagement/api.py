@@ -2,7 +2,7 @@
 
 import json
 import inspect
-from selector import Selector
+from shunting.shuntbox import Router, NotFound, NotSupported
 from functools import wraps
 from collections import namedtuple, Iterable
 from cromlech.jwt.components import TokenException
@@ -67,7 +67,7 @@ def route(url, methods=None):
 
 def endpoint_routes(endpoint):
     if isinstance(endpoint, APIView):
-        route = {'_ANY_': endpoint.__call__}
+        route = {'ANY': endpoint.__call__}
         yield endpoint._route, route
     else:
         methods = dict(inspect.getmembers(endpoint, inspect.ismethod))
@@ -104,34 +104,39 @@ class Overhead(BaseOverhead):
 class API(APINode):
     
     def __init__(self, overhead_factory):
-        mapper = Selector()
-        mapper.status404 = reply(404)
-        mapper.status405 = reply(405)
-        self.mapper = mapper
+        self.mapper = Router()
         self.overhead_factory = overhead_factory
 
     def add_endpoint(self, path, endpoint):
         routes = list(endpoint_routes(endpoint))
         for url, args in routes:
-            self.mapper.add(url, method_dict=args, prefix=path)
+            self.mapper.add(url, prefix=path, **args)
 
     def __setitem__(self, name, values):
         for value in values:
             self.add_endpoint(name, value)
 
-    def process_endpoint(self, environ, routing_args):
-        action, args, allowed, path = routing_args
-        if not path:
-            # This is an error
-            response = action
-        else:
-            overhead = self.overhead_factory(args)
-            response = allow_origins('*')(action)(environ, overhead)
+    def process_endpoint(self, environ, route):
+        overhead = self.overhead_factory(route.params)
+        response = allow_origins('*')(route.handler)(environ, overhead)
         return response
-            
-    def lookup(self, path_info, environ):
-        return self.mapper.select(path_info, environ['REQUEST_METHOD'])
 
+    def lookup(self, path_info, environ):
+        return self.mapper.lookup(path_info, environ['REQUEST_METHOD'])
+
+    def routing(self, environ):
+        # according to PEP 3333 the native string representing PATH_INFO
+        # (and others) can only contain unicode codepoints from 0 to 255,
+        # which is why we need to decode to latin-1 instead of utf-8 here.
+        # We transform it back to UTF-8
+        path_info = environ['PATH_INFO'].encode('latin-1').decode('utf-8')
+        route = self.lookup(path_info, environ)
+        if route is NotFound:
+            return reply(404)
+        if route is NotSupported:
+            return reply(405)
+        return self.process_endpoint(environ, route)
+    
 
 def string_validator(value, max=None, min=0, **kwargs):
     if not isinstance(value, str):
@@ -184,9 +189,10 @@ class validate_vbg:
         "select": (generic_validator, select_validator),
     }
 
-    def __init__(self, schema):
+    def __init__(self, schema, as_dict=False):
         self.schema = schema  # Python structure
         self.fields = schema['fields']
+        self.as_dict = as_dict
 
     def extract(self, environ):
         method = environ['REQUEST_METHOD']
@@ -251,7 +257,7 @@ class validate_vbg:
                 else:
                     names = tuple((field['model'] for field in self.fields))
                     DataClass = namedtuple(action.__name__, names)
-                    results = DataClass(**extracted)
+                    result = DataClass(**extracted)
 
                 if overhead is None:
                     overhead = result

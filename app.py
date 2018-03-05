@@ -24,6 +24,7 @@ def get_key(path):
 
 with Configuration('config.json') as config:
     import usermanagement
+    import bjoern
     from cromlech.jwt.components import JWTHandler, JWTService
     from cromlech.sqlalchemy import create_engine
     
@@ -39,3 +40,5 @@ with Configuration('config.json') as config:
     application = usermanagement.API(overhead_factory)
     application['/users'] = usermanagement.users.modules
     application['/auth'] = usermanagement.auth.modules
+
+    bjoern.run(application, '0.0.0.0', 8080)

@@ -16,8 +16,9 @@ Error handling
   >>> response = app.post(
   ...     '/users/create', '''{"a": 1}''',
   ...     expect_errors=True)
-  >>> assert response.status_int == 406
-  >>> assert response.body == b'Content type must be application/json'
+
+  >>> assert response.status_int == 400
+  >>> assert response.content_type == 'application/json'
 
   >>> response = app.put('/users/create', {'a': 1}, expect_errors=True)
   >>> assert response.status_int == 405
@@ -26,9 +27,9 @@ Error handling
 Schema
 ------
 
-  >>> from usermanagement.users import user_schema
+  >>> from usermanagement.users import SCHEMA_STRING
   >>> response = app.get('/users/schema')
-  >>> assert response.body == bytes(user_schema.string, 'utf-8')
+  >>> assert response.body == bytes(SCHEMA_STRING, 'utf-8')
 
 
 Create
@@ -43,12 +44,10 @@ Errors handling:
   ...     expect_errors=True)
 
   >>> assert response.json == {
-  ...     '__missing__': [
-  ...         "'companyID' is a required property",
-  ...	      "'name' is a required property",
-  ...	      "'password' is a required property",
-  ...	      "'surname' is a required property",
-  ...      ]
+  ...     'companyID': ['Value is missing.'],
+  ...     'name': ['Value is missing.'],
+  ...     'surname': ['Value is missing.'],
+  ...     'password': ['Value is missing.'],
   ... }
 
 
@@ -56,8 +55,8 @@ Full submit:
 
   >>> response = app.post(
   ...     '/users/create',
-  ...     '''{"id": 1, "name": "Klinger", "surname": "Christian",
-  ...         "password": "test", "companyID": "novareto"}''',
+  ...     '''{"name": "Klinger", "surname": "Christian",
+  ...         "password": "test72", "companyID": "novareto"}''',
   ...     headers={'Content-Type': 'application/json'},
   ...     expect_errors=False)
 
@@ -77,12 +76,10 @@ Errors handling:
   ...     expect_errors=True)
 
   >>> assert response.json == {
-  ...     '__missing__': [
-  ...         "'companyID' is a required property",
-  ...	      "'name' is a required property",
-  ...	      "'password' is a required property",
-  ...	      "'surname' is a required property",
-  ...      ]
+  ...     'companyID': ['Value is missing.'],
+  ...     'name': ['Value is missing.'],
+  ...     'surname': ['Value is missing.'],
+  ...     'password': ['Value is missing.'],
   ... }
 
 
@@ -91,7 +88,7 @@ Full submit:
   >>> response = app.put(
   ...     '/users/update/1',
   ...     '''{"name": "Klinger", "surname": "Christian",
-  ...         "password": "test", "companyID": "novareto"}''',
+  ...         "password": "test42", "companyID": "novareto"}''',
   ...     headers={'Content-Type': 'application/json'},
   ...     expect_errors=False)
 
